@@ -25,10 +25,16 @@ dependencies {
     // PostgreSQL & PostGIS 라이브러리 설정
     implementation 'org.postgresql:postgresql'
     implementation 'net.postgis:postgis-jdbc:2.5.0'
+    // 썸네일 및 WebP 지원 (TwelveMonkeys SPI)
+    implementation 'net.coobird:thumbnailator:0.4.20'
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
+    // implementation 'com.twelvemonkeys.imageio:imageio-core:3.12.0'
+    // EXIF 메타데이터 추출 라이브러리
+    implementation 'com.drewnoakes:metadata-extractor:2.19.0'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     annotationProcessor 'org.projectlombok:lombok'
-    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat-runtime'
+    // providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat-runtime'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:4.0.1'
     testCompileOnly 'org.projectlombok:lombok'

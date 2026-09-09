@@ -1,0 +1,19 @@
+#map {
+    position: absolute;
+    width: calc(100%);
+    height: calc(100%);
+    left: 0px;
+    top: 0px;
+}
+#interface {
+    display: block;
+    position: absolute;
+    z-index: 9;
+    background-color: #FFFFFF;
+    padding: 10px 10px 10px 15px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: bold;
+    opacity: 0.9;
+    margin: 8px;
+}
