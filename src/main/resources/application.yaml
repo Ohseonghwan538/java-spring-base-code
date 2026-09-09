@@ -1,3 +1,23 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: java-spring-base-code
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/map_db
+    username: postgres
+    password: 1234
+
+  # 파일 업로드 자동 설정 (Multipart Auto-Configuration)
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+mybatis:
+  mapper-locations: classpath:/mappers/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true # 카멜케이스 자동 변환 (e.g. original_file_path -> originalFilePath)

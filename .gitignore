@@ -35,3 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# 업로드 및 압축 이미지 저장소 제외
+/storage/

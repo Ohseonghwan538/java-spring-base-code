@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.map.egis.mapper.ImageMapper">
+
+    <!-- 1. 이벤트 그룹 생성 -->
+    <insert id="insertImageGroup" parameterType="com.map.egis.domain.ImageGroup"
+            useGeneratedKeys="true" keyProperty="groupId" keyColumn="group_id">
+        INSERT INTO image_groups (user_id, started_at)
+        VALUES (#{userId}, #{startedAt})
+    </insert>
+
+    <!-- 2. 이미지 메타데이터 및 PostGIS 공간 데이터 저장 -->
+    <insert id="insertImageMeta" parameterType="com.map.egis.domain.ImageMeta"
+            useGeneratedKeys="true" keyProperty="imageId" keyColumn="image_id">
+        INSERT INTO images (
+            group_id,
+            original_file_path,
+            compressed_file_path,
+            location,
+            latitude,
+            longitude,
+            altitude,
+            taken_at
+        ) VALUES (
+                     #{groupId},
+                     #{originalFilePath},
+                     #{compressedFilePath},
+                     ST_SetSRID(ST_MakePoint(#{longitude}, #{latitude}), 4326),
+                     #{latitude},
+                     #{longitude},
+                     #{altitude},
+                     #{takenAt}
+                 )
+    </insert>
+
+    <!-- 3. 이벤트 그룹 종료 처리 -->
+    <update id="updateGroupEnd">
+        UPDATE image_groups
+        SET ended_at = CURRENT_TIMESTAMP
+        WHERE group_id = #{groupId}
+    </update>
+
+</mapper>

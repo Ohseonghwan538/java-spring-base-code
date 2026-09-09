@@ -22,9 +22,11 @@ repositories {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
+    // PostgreSQL & PostGIS 라이브러리 설정
+    implementation 'org.postgresql:postgresql'
+    implementation 'net.postgis:postgis-jdbc:2.5.0'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-    runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
     providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat-runtime'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
