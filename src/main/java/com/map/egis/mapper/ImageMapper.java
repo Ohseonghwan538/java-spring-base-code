@@ -5,6 +5,8 @@ import com.map.egis.domain.ImageMeta;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface ImageMapper {
     void insertImageGroup(ImageGroup group);
@@ -13,6 +15,8 @@ public interface ImageMapper {
 
     // 느낀점(memo) 업데이트 메서드 추가
     int updateImageMemo(@Param("imageId") Long imageId, @Param("memo") String memo);
-    // 단건 조회 메서드 
-    ImageMeta selectImageMetaById(Long imageId);
+    List<ImageMeta> findImagesByUserIdAndGroupId(
+            @Param("userId") String userId,
+            @Param("groupId") Long groupId
+    );
 }

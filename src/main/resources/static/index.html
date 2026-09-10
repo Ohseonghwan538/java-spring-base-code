@@ -3,37 +3,19 @@
 <head>
     <meta charset="utf-8">
     <title>XDWorld GPS Image Marker</title>
-    <link rel="stylesheet" href="./src/css/style.css">
-    <link rel="icon" href="../data/favicon.ico" type="image/svg+xml">
-    
-    <!-- EXIF 읽기 라이브러리 -->
+    <link rel="stylesheet" href="./src/components/style.css">
+    <link rel="icon" href="./src/components/favicon.ico" type="image/svg+xml">
+    <!-- EXIF: Metadata 빠르게 읽는 용도의 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
-    
-    <!--  piexifjs CDN 주소로 수정 -->
+    <!--  piexifjs: Metadata 수정까지 할 수 있는 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
 </head>
 <body>
-    <div id="upload-panel" style="position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px;">
-        <h3>📷 3D 지도 이미지 등록</h3>
-        
-        <!-- 그룹 생성 영역 -->
-        <div style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #ccc;">
-            <label>사용자 ID: <input type="text" id="userId" value="testUser" style="width: 80px;"></label>
-            <button type="button" id="btnCreateGroup">➕ 새 그룹 생성</button>
-        </div>
-
-        <form id="uploadForm">
-            <label>현재 그룹 ID: <input type="number" id="groupId" placeholder="그룹 생성 필요" readonly required style="background: #eee;"></label><br><br>
-            <label>사진 파일: <input type="file" id="originalFile" accept="image/*" required></label><br><br>
-            <label>경도(Lon): <input type="number" step="any" id="longitude" placeholder="자동 추출됨"></label><br>
-            <label>위도(Lat): <input type="number" step="any" id="latitude" placeholder="자동 추출됨"></label><br>
-            <label>고도(Alt): <input type="number" step="any" id="altitude" value="0.0"></label><br><br>
-            <button type="submit">서버 업로드 및 핀 생성</button>
-        </form>
-    </div>
     <div id="map"></div>
+    <div id="sidebar"></div>
     <script src="./src/js/engine/XDWorldEM.js" defer></script>
     <script src="./src/js/module.js" defer></script>
     <script type="module" src="./src/js/main.js" defer></script>
+    <script src="./src/js/sidebar.js" defer></script>
 </body>
 </html>

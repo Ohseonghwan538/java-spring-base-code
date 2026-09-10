@@ -17,3 +17,17 @@
     opacity: 0.9;
     margin: 8px;
 }
+.sidebar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.9);
+    padding: 15px;
+    border-radius: 8px;
+}
+#groupCreationPanel {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ccc;
+}

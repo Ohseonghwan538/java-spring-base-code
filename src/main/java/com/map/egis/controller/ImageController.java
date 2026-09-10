@@ -10,9 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-
+import java.util.List;
 @RestController
 @RequestMapping("/api/images")
 @RequiredArgsConstructor
@@ -21,17 +19,13 @@ public class ImageController {
     private final ImageService imageService;
 
     @PostMapping("/group/start")
-    public ResponseEntity<Map<String, Object>> startGroup(@RequestParam("userId") String userId) {
+    public ResponseEntity<ImageApiResponse.Group> startGroup(@RequestParam("userId") String userId) {
         Long groupId = imageService.startEventGroup(userId);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "SUCCESS");
-        response.put("groupId", groupId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ImageApiResponse.Group.success(groupId));
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<Map<String, Object>> uploadImage(
+    public ResponseEntity<ImageApiResponse.Upload> uploadImage(
             @RequestParam("groupId") Long groupId,
             @RequestParam("originalFile") MultipartFile originalFile,
             @RequestParam(value = "latitude", required = false) BigDecimal latitude,
@@ -40,7 +34,6 @@ public class ImageController {
             @RequestParam(value = "takenAt", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime takenAt
     ) {
-        // 1. Service에서 ImageMeta 객체를 전달받음 (Step 1에서 saveImage 반환타입 변경 필요)
         ImageMeta imageMeta = imageService.saveImage(
                 groupId,
                 originalFile,
@@ -50,27 +43,13 @@ public class ImageController {
                 takenAt
         );
 
-        // 2. 프론트엔드(main.js)에서 필요한 정보를 Map에 저장
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "SUCCESS");
-        response.put("imageId", imageMeta.getImageId());
-        response.put("compressedFilePath", imageMeta.getCompressedFilePath()); // 👈 필수 추가 항목!
-        response.put("originalFilePath", imageMeta.getOriginalFilePath());
-        response.put("latitude", imageMeta.getLatitude());
-        response.put("longitude", imageMeta.getLongitude());
-        response.put("altitude", imageMeta.getAltitude());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ImageApiResponse.Upload.success(imageMeta));
     }
 
     @PostMapping("/group/end")
-    public ResponseEntity<Map<String, Object>> endGroup(@RequestParam("groupId") Long groupId) {
+    public ResponseEntity<ImageApiResponse.Group> endGroup(@RequestParam("groupId") Long groupId) {
         imageService.endEventGroup(groupId);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "SUCCESS");
-        response.put("groupId", groupId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ImageApiResponse.Group.success(groupId));
     }
 
     /**
@@ -79,17 +58,21 @@ public class ImageController {
      * 파라미터: imageId (Long), memo (String)
      */
     @PostMapping("/memo")
-    public ResponseEntity<Map<String, Object>> updateMemo(
+    public ResponseEntity<ImageApiResponse.Memo> updateMemo(
             @RequestParam("imageId") Long imageId,
             @RequestParam("memo") String memo
     ) {
         imageService.updateImageMemo(imageId, memo);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "SUCCESS");
-        response.put("imageId", imageId);
-        response.put("memo", memo);
+        return ResponseEntity.ok(ImageApiResponse.Memo.success(imageId, memo));
+    }
 
-        return ResponseEntity.ok(response);
+    @GetMapping
+    public ResponseEntity<ImageApiResponse.Images> loadImages(
+            @RequestParam String userId,
+            @RequestParam Long groupId
+    ) {
+        List<ImageMeta> images = imageService.findImages(userId, groupId);
+        return ResponseEntity.ok(ImageApiResponse.Images.success(groupId, images));
     }
 }

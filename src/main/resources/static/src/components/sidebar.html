@@ -1,0 +1,19 @@
+<div id="sidebar" class="sidebar">
+    <h3>📷 3D 지도 이미지 등록</h3>
+
+    <!-- 그룹 생성 영역 -->
+    <div id="groupCreationPanel">
+        <label>사용자 ID: <input type="text" id="userId" value="testUser" style="width: 80px;"></label>
+        <button type="button" id="btnCreateGroup">➕ 새 그룹 생성</button>
+        <button type="button" id="btnLoadImages">불러오기</button>
+    </div>
+
+    <form id="uploadForm">
+        <label>현재 그룹 ID: <input type="number" id="groupId" placeholder="그룹 생성 필요" required></label><br><br>
+        <label>사진 파일: <input type="file" id="originalFile" accept="image/*" required></label><br><br>
+        <label>경도(Lon): <input type="number" step="any" id="longitude" placeholder="자동 추출됨"></label><br>
+        <label>위도(Lat): <input type="number" step="any" id="latitude" placeholder="자동 추출됨"></label><br>
+        <label>고도(Alt): <input type="number" step="any" id="altitude" value="0.0"></label><br><br>
+        <button type="submit">서버 업로드 및 핀 생성</button>
+    </form>
+</div>

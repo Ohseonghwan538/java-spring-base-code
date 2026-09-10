@@ -21,3 +21,7 @@ mybatis:
   mapper-locations: classpath:/mappers/**/*.xml
   configuration:
     map-underscore-to-camel-case: true # 카멜케이스 자동 변환 (e.g. original_file_path -> originalFilePath)
+
+app:
+  storage:
+    root: storage

@@ -3,6 +3,7 @@ package com.map.egis.service;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
+import com.map.egis.config.StorageProperties;
 import com.map.egis.domain.ImageGroup;
 import com.map.egis.domain.ImageMeta;
 import com.map.egis.mapper.ImageMapper;
@@ -18,15 +19,17 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,10 +37,15 @@ import java.util.UUID;
 public class ImageService {
 
     private final ImageMapper imageMapper;
+    private final StorageProperties storageProperties;
 
-    private static final int MAX_WIDTH = 1920; // 지도 요구사항에 맞춰 640/1280/1920으로 조절
-    private static final int MAX_HEIGHT = 1920; // // 지도 요구사항에 맞춰 480/720/1080으로 조절
+    private static final int MAX_WIDTH = 1920;
+    private static final int MAX_HEIGHT = 1920;
     private static final float COMPRESSION_QUALITY = 0.80f;
+
+    static {
+        ImageIO.scanForPlugins();
+    }
 
     @Transactional
     public Long startEventGroup(String userId) {
@@ -53,43 +61,41 @@ public class ImageService {
     @Transactional
     public ImageMeta saveImage(
             Long groupId,
-            MultipartFile originalFile, // compressedFile 파라미터 제거 (서버 자동 생성)
+            MultipartFile originalFile,
             BigDecimal latitude,
             BigDecimal longitude,
             BigDecimal altitude,
             LocalDateTime takenAt
     ) {
+        validateUpload(originalFile);
+
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-        String projectRoot = new File("").getAbsolutePath();
-
-        String origDir = projectRoot + "/storage/original/" + datePath;
-        String compDir = projectRoot + "/storage/compressed/" + datePath;
-
-        new File(origDir).mkdirs();
-        new File(compDir).mkdirs();
+        Path originalDirectory = storageProperties.originalDirectory().resolve(datePath);
+        Path compressedDirectory = storageProperties.compressedDirectory().resolve(datePath);
+        createDirectories(originalDirectory, compressedDirectory);
 
         String uuid = UUID.randomUUID().toString();
-        String origFileName = uuid + "_" + originalFile.getOriginalFilename();
-        String compFileName = uuid + ".webp";
+        String origFileName = uuid + "_" + sanitizeFilename(originalFile.getOriginalFilename());
 
-        File destOrigFile = new File(origDir, origFileName);
-        File destCompFile = new File(compDir, compFileName);
+        Path originalPath = originalDirectory.resolve(origFileName);
 
-        // 1. 원본 저장
+        LocalDateTime finalTakenAt;
+        CompressedImage compressedImage;
         try {
-            originalFile.transferTo(destOrigFile);
-        } catch (IOException e) {
-            throw new RuntimeException("로컬 파일 시스템에 원본 이미지를 저장하는 중 오류가 발생했습니다.", e);
+            originalFile.transferTo(originalPath);
+            finalTakenAt = resolveTakenAt(originalPath, takenAt);
+            compressedImage = processAndSaveCompressedImage(originalPath, compressedDirectory, uuid);
+        } catch (IOException | RuntimeException e) {
+            deleteFilesQuietly(
+                    originalPath,
+                    compressedDirectory.resolve(uuid + ".webp"),
+                    compressedDirectory.resolve(uuid + ".jpg")
+            );
+            throw new IllegalStateException("이미지 파일을 저장하거나 압축하는 중 오류가 발생했습니다.", e);
         }
 
-        // 2. 촬영 시각 결정 (전달값 -> EXIF 추출 -> 현재시각)
-        LocalDateTime finalTakenAt = resolveTakenAt(destOrigFile, takenAt);
-
-        // 3. 메타데이터 제거 및 압축 이미지 생성
-        processAndSaveCompressedImage(destOrigFile, destCompFile);
-
         String origWebPath = "/images/original/" + datePath + "/" + origFileName;
-        String compWebPath = "/images/compressed/" + datePath + "/" + compFileName;
+        String compWebPath = "/images/compressed/" + datePath + "/" + compressedImage.fileName();
 
         ImageMeta imageMeta = ImageMeta.builder()
                 .groupId(groupId)
@@ -105,12 +111,44 @@ public class ImageService {
         return imageMeta;
     }
 
-    private LocalDateTime resolveTakenAt(File imageFile, LocalDateTime requestTakenAt) {
+    private void validateUpload(MultipartFile originalFile) {
+        if (originalFile == null || originalFile.isEmpty()) {
+            throw new IllegalArgumentException("업로드할 이미지 파일이 필요합니다.");
+        }
+    }
+
+    private void createDirectories(Path... directories) {
+        try {
+            for (Path directory : directories) {
+                Files.createDirectories(directory);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("이미지 저장 디렉터리를 만들 수 없습니다.", e);
+        }
+    }
+
+    private String sanitizeFilename(String originalFilename) {
+        String filename = originalFilename == null ? "image" : originalFilename.replace('\\', '/');
+        filename = filename.substring(filename.lastIndexOf('/') + 1).replaceAll("[^a-zA-Z0-9._-]", "_");
+        return filename.isBlank() ? "image" : filename;
+    }
+
+    private void deleteFilesQuietly(Path... paths) {
+        for (Path path : paths) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException ignored) {
+                // The primary processing error is more useful to the caller than cleanup failure.
+            }
+        }
+    }
+
+    private LocalDateTime resolveTakenAt(Path imagePath, LocalDateTime requestTakenAt) {
         if (requestTakenAt != null) {
             return requestTakenAt;
         }
         try {
-            Metadata metadata = ImageMetadataReader.readMetadata(imageFile);
+            Metadata metadata = ImageMetadataReader.readMetadata(imagePath.toFile());
             ExifSubIFDDirectory directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
             if (directory != null) {
                 Date date = directory.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
@@ -118,59 +156,60 @@ public class ImageService {
                     return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // Some supported image formats do not carry EXIF metadata.
+        }
         
         return LocalDateTime.now();
     }
 
-    private void processAndSaveCompressedImage(File srcFile, File destFile) {
-        // TwelveMonkeys WebP 플러그인 동적 레지스트리 등록
-        ImageIO.scanForPlugins();
-        try {
-            // 1. 원본 비율 유지 리사이징 및 EXIF 회전 적용
-            BufferedImage resizedImage = Thumbnails.of(srcFile)
-                    .size(MAX_WIDTH, MAX_HEIGHT)
-                    .useExifOrientation(true)
-                    .asBufferedImage();
+    private CompressedImage processAndSaveCompressedImage(Path sourcePath, Path destinationDirectory, String fileId)
+            throws IOException {
+        BufferedImage resizedImage = Thumbnails.of(sourcePath.toFile())
+                .size(MAX_WIDTH, MAX_HEIGHT)
+                .useExifOrientation(true)
+                .asBufferedImage();
 
-            // 2. WebP 인코더 검색 (MIME type 또는 Format name)
-            Iterator<ImageWriter> writers = ImageIO.getImageWritersByMIMEType("image/webp");
-            if (!writers.hasNext()) {
-                writers = ImageIO.getImageWritersByFormatName("webp");
-            }
-
-            // WebP 지원 불가 시 JPG로 Fallback 처리
-            if (!writers.hasNext()) {
-                boolean written = ImageIO.write(resizedImage, "jpg", destFile);
-                if (!written) {
-                    throw new RuntimeException("ImageIO를 통한 이미지 저장 실패");
-                }
-                return;
-            }
-
-            // 3. WebP 인코딩 진행
-            ImageWriter writer = writers.next();
-            try (ImageOutputStream ios = ImageIO.createImageOutputStream(destFile)) {
-                writer.setOutput(ios);
-                ImageWriteParam param = writer.getDefaultWriteParam();
-
-                if (param.canWriteCompressed()) {
-                    param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                    String[] types = param.getCompressionTypes();
-                    if (types != null && types.length > 0) {
-                        param.setCompressionType(types[0]);
-                    }
-                    param.setCompressionQuality(COMPRESSION_QUALITY);
-                }
-
-                writer.write(null, new IIOImage(resizedImage, null, null), param);
-            } finally {
-                writer.dispose();
-            }
-
-        } catch (IOException e) {
-            throw new RuntimeException("이미지 압축 처리 중 오류가 발생했습니다.", e);
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByMIMEType("image/webp");
+        if (!writers.hasNext()) {
+            writers = ImageIO.getImageWritersByFormatName("webp");
         }
+
+        if (!writers.hasNext()) {
+            Path jpegPath = destinationDirectory.resolve(fileId + ".jpg");
+            if (!ImageIO.write(resizedImage, "jpg", jpegPath.toFile())) {
+                throw new IOException("JPEG 이미지 인코더를 찾을 수 없습니다.");
+            }
+            return new CompressedImage(jpegPath.getFileName().toString());
+        }
+
+        Path webpPath = destinationDirectory.resolve(fileId + ".webp");
+        ImageWriter writer = writers.next();
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(webpPath.toFile())) {
+            if (ios == null) {
+                throw new IOException("압축 이미지 출력 스트림을 열 수 없습니다.");
+            }
+            writer.setOutput(ios);
+            ImageWriteParam param = writer.getDefaultWriteParam();
+
+            if (param.canWriteCompressed()) {
+                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                String[] types = param.getCompressionTypes();
+                if (types != null && types.length > 0) {
+                    param.setCompressionType(types[0]);
+                }
+                param.setCompressionQuality(COMPRESSION_QUALITY);
+            }
+
+            writer.write(null, new IIOImage(resizedImage, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+
+        return new CompressedImage(webpPath.getFileName().toString());
+    }
+
+    private record CompressedImage(String fileName) {
     }
 
     @Transactional
@@ -185,5 +224,16 @@ public class ImageService {
         if (updatedRows == 0) {
             throw new IllegalArgumentException("해당 이미지 메타 정보가 존재하지 않습니다. ID: " + imageId);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImageMeta> findImages(String userId, Long groupId) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("사용자 ID가 필요합니다.");
+        }
+        if (groupId == null) {
+            throw new IllegalArgumentException("그룹 ID가 필요합니다.");
+        }
+        return imageMapper.findImagesByUserIdAndGroupId(userId.trim(), groupId);
     }
 }
